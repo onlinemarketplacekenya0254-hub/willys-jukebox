@@ -1,35 +1,801 @@
-const VERSION = "willys-jukebox-v1";
-const SHELL = ["./", "./index.html", "./manifest.webmanifest", "./icon.svg"];
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Willy's Jukebox</title>
+<meta name="theme-color" content="#0b0f14">
+<style>
+  :root{
+    --bg:#0b0f14; --panel:#121821; --panel2:#1a222d; --line:#243040;
+    --txt:#e8eef6; --dim:#8b9bb0; --accent:#4ade80; --accent2:#38bdf8; --warn:#fbbf24;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--txt);
+       font:15px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+       padding-bottom:104px}
+  header{position:sticky;top:0;z-index:5;background:rgba(11,15,20,.92);
+         backdrop-filter:blur(10px);border-bottom:1px solid var(--line);
+         padding:14px 18px;display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+  .logo{font-weight:700;font-size:19px;letter-spacing:-.3px;display:flex;gap:8px;align-items:center}
+  .dot{width:10px;height:10px;border-radius:50%;background:var(--accent);box-shadow:0 0 12px var(--accent)}
+  #search{flex:1;min-width:200px;background:var(--panel);border:1px solid var(--line);
+          color:var(--txt);padding:10px 14px;border-radius:10px;outline:none}
+  #search:focus{border-color:var(--accent)}
+  .tabs{display:flex;gap:6px;flex-wrap:wrap}
+  .tab{background:transparent;border:1px solid transparent;color:var(--dim);
+       padding:8px 13px;border-radius:9px;cursor:pointer;font-size:14px}
+  .tab.on{background:var(--panel2);color:var(--txt);border-color:var(--line)}
+  .pill{font-size:11.5px;padding:4px 9px;border-radius:20px;border:1px solid var(--line);color:var(--dim)}
+  .pill.up{color:var(--accent);border-color:#2c4a35}
+  .pill.down{color:var(--warn);border-color:#4a3f1e}
+  main{padding:18px}
+  .hint{color:var(--dim);font-size:13px;margin:0 0 14px;min-height:20px}
+  .settings{display:flex;gap:18px;align-items:center;flex-wrap:wrap;
+            background:var(--panel);border:1px solid var(--line);border-radius:12px;
+            padding:10px 14px;margin-bottom:16px;font-size:13px;color:var(--dim)}
+  .settings label{display:flex;gap:7px;align-items:center;cursor:pointer}
+  .settings input[type=number]{width:74px;background:var(--panel2);border:1px solid var(--line);
+       color:var(--txt);border-radius:7px;padding:5px 7px;font-size:13px}
+  input[type=checkbox]{accent-color:var(--accent);width:15px;height:15px}
+  .grid{display:grid;gap:12px;grid-template-columns:repeat(auto-fill,minmax(230px,1fr))}
+  .sec{grid-column:1/-1;font-size:12.5px;text-transform:uppercase;letter-spacing:.8px;
+       color:var(--dim);margin:10px 0 2px;display:flex;align-items:center;gap:10px}
+  .sec::after{content:"";flex:1;height:1px;background:var(--line)}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;
+        padding:14px;display:flex;flex-direction:column;gap:10px}
+  .card:hover{border-color:#33465e}
+  .t{font-weight:600;font-size:14px;line-height:1.35;
+     display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+  .c{color:var(--dim);font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .row{display:flex;gap:8px;margin-top:auto}
+  button.act{flex:1;border:1px solid var(--line);background:var(--panel2);color:var(--txt);
+             padding:8px;border-radius:9px;cursor:pointer;font-size:13px}
+  button.act:hover{border-color:var(--accent);color:var(--accent)}
+  button.act[disabled]{opacity:.55;cursor:default}
+  button.play{background:var(--accent);color:#06210f;border-color:var(--accent);font-weight:600}
+  button.play:hover{filter:brightness(1.1);color:#06210f}
+  .badge{font-size:10.5px;padding:2px 7px;border-radius:20px;border:1px solid var(--line);color:var(--dim);align-self:flex-start}
+  .badge.off{color:var(--accent);border-color:#2c4a35}
+  .badge.cloud{color:var(--accent2);border-color:#22415c}
+  .gsel{background:var(--panel2);border:1px solid var(--line);color:var(--txt);
+        border-radius:8px;padding:6px 8px;font-size:12.5px;width:100%}
+  .gicon{font-size:26px;line-height:1}
+  #player{position:fixed;left:0;right:0;bottom:0;background:var(--panel);
+          border-top:1px solid var(--line);padding:10px 16px;display:flex;gap:14px;
+          align-items:center;flex-wrap:wrap}
+  .now{min-width:150px;flex:0 0 auto;max-width:240px}
+  .now .t{font-size:13.5px}
+  .ctrls{display:flex;gap:6px;align-items:center}
+  .ico{width:38px;height:38px;border-radius:50%;border:1px solid var(--line);
+       background:var(--panel2);color:var(--txt);cursor:pointer;font-size:14px}
+  .ico:hover{border-color:var(--accent)}
+  #pp{background:var(--accent);color:#06210f;border-color:var(--accent);font-weight:700}
+  .ico.on{color:var(--accent);border-color:var(--accent)}
+  .mid{flex:1;display:flex;align-items:center;gap:10px;min-width:220px}
+  input[type=range]{-webkit-appearance:none;appearance:none;height:5px;border-radius:5px;
+       background:var(--panel2);outline:none;cursor:pointer}
+  #seek{flex:1}
+  input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:14px;height:14px;
+       border-radius:50%;background:var(--accent);cursor:pointer}
+  input[type=range]::-moz-range-thumb{width:14px;height:14px;border:0;border-radius:50%;
+       background:var(--accent);cursor:pointer}
+  .time{font-variant-numeric:tabular-nums;color:var(--dim);font-size:12px;min-width:42px;text-align:center}
+  #vol{width:90px}
+  .empty{color:var(--dim);text-align:center;padding:56px 20px;font-size:14px;grid-column:1/-1}
+  @media(max-width:620px){ .mid{order:3;width:100%} #vol{display:none} }
+</style>
+</head>
+<body>
 
-self.addEventListener("install", e => {
-  e.waitUntil(
-    caches.open(VERSION).then(c => c.addAll(SHELL)).then(() => self.skipWaiting())
-  );
-});
+<header>
+  <div class="logo"><span class="dot"></span><span id="appName">Willy's Jukebox</span></div>
+  <input id="search" type="search" placeholder="Search any music — try: blues, piano, django…" autocomplete="off">
+  <span class="pill" id="net">checking…</span>
+  <div class="tabs">
+    <button class="tab on" data-view="browse">Browse</button>
+    <button class="tab" data-view="genres">Genres</button>
+    <button class="tab" data-view="library">Library</button>
+    <button class="tab" data-view="history">Heard</button>
+  </div>
+</header>
 
-self.addEventListener("activate", e => {
-  e.waitUntil(
-    caches.keys()
-      .then(keys => Promise.all(keys.filter(k => k !== VERSION).map(k => caches.delete(k))))
-      .then(() => self.clients.claim())
-  );
-});
+<main>
+  <p id="status" class="hint">Search the Internet Archive's public-domain &amp; Creative Commons audio, browse by genre, or play what you have offline.</p>
 
-self.addEventListener("fetch", e => {
-  const req = e.request;
-  if (req.method !== "GET") return;
-  // Leave the music catalog's requests to the network.
-  if (new URL(req.url).origin !== self.location.origin) return;
-  e.respondWith(
-    caches.match(req).then(hit => {
-      const net = fetch(req).then(res => {
-        if (res && res.ok) {
-          const copy = res.clone();
-          caches.open(VERSION).then(c => c.put(req, copy));
+  <div class="settings" id="settings" hidden>
+    <label><input type="checkbox" id="ac"> Keep heard tracks offline</label>
+    <label>Limit <input type="number" id="cap" min="50" max="5000" step="50" value="300"> MB</label>
+    <span id="stor" class="c"></span>
+  </div>
+
+  <div id="list" class="grid"></div>
+</main>
+
+<div id="player">
+  <div class="now">
+    <div class="t" id="nowTitle">Nothing playing</div>
+    <div class="c" id="nowArtist">—</div>
+  </div>
+  <div class="ctrls">
+    <button class="ico" id="prev" title="Previous">⏮</button>
+    <button class="ico" id="pp" title="Play / Pause">▶</button>
+    <button class="ico" id="next" title="Next">⏭</button>
+    <button class="ico" id="shuf" title="Shuffle">🔀</button>
+    <button class="ico" id="rep" title="Repeat">🔁</button>
+  </div>
+  <div class="mid">
+    <span class="time" id="cur">0:00</span>
+    <input id="seek" type="range" min="0" max="1000" value="0">
+    <span class="time" id="dur">0:00</span>
+    <input id="vol" type="range" min="0" max="1" step="0.01" value="0.9" title="Volume">
+  </div>
+  <audio id="audio" preload="metadata"></audio>
+</div>
+
+<script>
+"use strict";
+
+/* ============ NAME & CONFIG (change here to rename the whole app) ============ */
+const APP_NAME = "Willy's Jukebox";
+$("appName").textContent = APP_NAME;
+document.title = APP_NAME;
+const DB_NAME  = "willys-jukebox";
+const IA       = "https://archive.org";
+const MAX_TRACK_BYTES = 40 * 1048576;   // don't auto-cache anything larger than 40 MB
+const MAX_HISTORY = 500;
+
+function $(s){ return document.querySelector(s); }
+const $one = $(s) => document.querySelector(s);
+const audio = $one("#audio");
+
+/* ============ GENRES — the playlists are built from these ============ */
+const GENRES = [
+  { id:"jazz",      name:"Jazz",          icon:"🎷", q:'subject:("jazz")' },
+  { id:"blues",     name:"Blues",         icon:"🎸", q:'subject:("blues")' },
+  { id:"classical", name:"Classical",     icon:"🎻", q:'subject:("classical music")' },
+  { id:"piano",     name:"Piano",         icon:"🎹", q:'subject:("piano")' },
+  { id:"guitar",    name:"Guitar",        icon:"🎼", q:'subject:("guitar")' },
+  { id:"rock",      name:"Rock",          icon:"🎤", q:'subject:("rock")' },
+  { id:"folk",      name:"Folk",          icon:"🪕", q:'subject:("folk")' },
+  { id:"country",   name:"Country",       icon:"🤠", q:'subject:("country music")' },
+  { id:"electronic",name:"Electronic",    icon:"🎛", q:'subject:("electronic music")' },
+  { id:"ambient",   name:"Ambient",       icon:"🌌", q:'subject:("ambient")' },
+  { id:"hiphop",    name:"Hip-Hop",       icon:"🎚", q:'subject:("hip hop" OR "hip-hop" OR "rap")' },
+  { id:"soul",      name:"Soul & Funk",   icon:"🕺", q:'subject:("soul" OR "funk")' },
+  { id:"reggae",    name:"Reggae",        icon:"🌴", q:'subject:("reggae" OR "ska")' },
+  { id:"gospel",    name:"Gospel",        icon:"⛪", q:'subject:("gospel" OR "spiritual")' },
+  { id:"world",     name:"World",         icon:"🌍", q:'subject:("world music" OR "traditional")' },
+  { id:"spoken",    name:"Spoken Word",   icon:"📻", q:'subject:("spoken word" OR "poetry")' }
+];
+const UNFILED = { id:"unfiled", name:"Unfiled", icon:"📁" };
+const genreById = id => GENRES.find(g => g.id === id) || (id === "unfiled" ? UNFILED : null);
+const genreName  = id => (genreById(id) || { name:id || "Unfiled" }).name;
+
+/* Guess a genre from free text (title/creator/search term) */
+function inferGenre(text){
+  const s = String(text || "").toLowerCase();
+  if(!s) return "unfiled";
+  const alias = { hiphop:["hip hop","hip-hop","rap"], soul:["soul","funk"], classical:["classical","symphony","concerto","opera"] };
+  for(const g of GENRES){
+    const words = [g.name.toLowerCase(), g.id, ...(alias[g.id] || [])];
+    if(words.some(w => w && s.includes(w))) return g.id;
+  }
+  return "unfiled";
+}
+
+/* ============ STATE ============ */
+const S = {
+  view:"browse", genre:null,
+  queue:[], i:-1, shuffle:false, repeat:false,
+  results:[], local:{ lib:[], hist:[] },
+  tracks:[],        // every downloaded/cached track (blob-bearing)
+  history:[],       // everything ever heard
+  autoCache:true, capBytes:300 * 1048576
+};
+const trackKeys = new Set();
+let objectUrl = null;
+
+/* ============ IndexedDB ============ */
+let dbp;
+function db(){
+  if(!dbp) dbp = new Promise((res,rej)=>{
+    const r = indexedDB.open(DB_NAME, 2);
+    r.onupgradeneeded = () => {
+      const d = r.result;
+      if(!d.objectStoreNames.contains("tracks"))  d.createObjectStore("tracks",  { keyPath:"key" });
+      if(!d.objectStoreNames.contains("history")) d.createObjectStore("history", { keyPath:"key" });
+    };
+    r.onsuccess = () => res(r.result);
+    r.onerror   = () => rej(r.error);
+  });
+  return dbp;
+}
+function run(store, mode, fn){
+  return db().then(d => new Promise((res,rej)=>{
+    const t = d.transaction(store, mode);
+    const req = fn(t.objectStore(store));
+    t.oncomplete = () => res(req ? req.result : undefined);
+    t.onerror    = () => rej(t.error);
+  }));
+}
+const trackPut = r => run("tracks","readwrite", s => s.put(r));
+const trackGet = k => run("tracks","readonly",  s => s.get(k));
+const trackAll = () => run("tracks","readonly",  s => s.getAll());
+const trackDel = k => run("tracks","readwrite", s => s.delete(k));
+const histPut  = r => run("history","readwrite", s => s.put(r));
+const histAll  = () => run("history","readonly",  s => s.getAll());
+const histGet  = k => run("history","readonly",  s => s.get(k));
+const histDel  = k => run("history","readwrite", s => s.delete(k));
+
+/* ============ helpers ============ */
+const fmt = s => (isFinite(s) ? Math.floor(s/60)+":"+String(Math.floor(s%60)).padStart(2,"0") : "0:00");
+const first = v => Array.isArray(v) ? (v[0]||"") : (v||"");
+const esc = t => String(t).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const encPath = n => n.split("/").map(encodeURIComponent).join("/");
+const isCached = key => trackKeys.has(key);
+const say = msg => $one("#status").textContent = msg;
+
+/* ============ Internet Archive ============ */
+async function searchIA(q){
+  const p = new URLSearchParams();
+  let query = "mediatype:(audio) AND format:(MP3)";
+  if(q) query += " AND (" + q + ")";
+  p.set("q", query);
+  ["identifier","title","creator","year","subject","downloads"].forEach(f => p.append("fl[]", f));
+  p.append("sort[]", "downloads desc");
+  p.set("rows", "24");
+  p.set("output", "json");
+  const r = await fetch(IA + "/advancedsearch.php?" + p.toString());
+  if(!r.ok) throw new Error("Search failed (" + r.status + ")");
+  const j = await r.json();
+  return (j.response && j.response.docs) || [];
+}
+async function resolveItem(id, genre){
+  const r = await fetch(IA + "/metadata/" + encodeURIComponent(id));
+  if(!r.ok) throw new Error("Could not load item (" + r.status + ")");
+  const j = await r.json();
+  const meta = j.metadata || {};
+  const files = (j.files || [])
+    .filter(f => /\.mp3$/i.test(f.name || "") && f.source !== "metadata")
+    .sort((a,b) => (b.format === "VBR MP3") - (a.format === "VBR MP3"));
+  if(!files.length) throw new Error("No MP3 files in this item");
+  return files.map(f => ({
+    key: id + "/" + f.name,
+    title: (first(meta.title) || f.name).replace(/\.[^.]+$/, ""),
+    creator: first(meta.creator) || "Unknown",
+    genre: genre || inferGenre(first(meta.title) + " " + first(meta.creator) + " " + first(meta.subject)),
+    url: IA + "/download/" + id + "/" + encPath(f.name)
+  }));
+}
+
+/* ============ LOCAL SEARCH (works fully offline) ============ */
+function matches(rec, q){
+  const hay = (rec.title + " " + rec.creator + " " + genreName(rec.genre)).toLowerCase();
+  return q.split(/\s+/).every(w => hay.includes(w));
+}
+function localSearch(q){
+  const s = q.toLowerCase().trim();
+  const lib  = S.tracks.filter(r => matches(r, s)).map(r => ({ ...r, _tag:"Library" }));
+  const hist = S.history.filter(r => matches(r, s) && !trackKeys.has(r.key)).map(r => ({ ...r, _tag:"Heard" }));
+  return { lib, hist };
+}
+
+/* ============ CARDS ============ */
+function el(html){ const d=document.createElement("div"); d.innerHTML=html; return d.firstElementChild; }
+
+function baseCard({ title, sub, badge, badgeClass, actions }){
+  const card = el(
+    '<div class="card">' +
+      '<div class="t">' + esc(title) + '</div>' +
+      '<div class="c">' + esc(sub) + '</div>' +
+      (badge ? '<div class="badge ' + (badgeClass||"") + '">' + esc(badge) + '</div>' : '') +
+      '<div class="row"></div>'
+    );
+  const row = card.querySelector(".row");
+  (actions||[]).forEach(a => {
+    const b = document.createElement("button");
+    b.className = "act" + (a.primary ? " play" : "");
+    b.textContent = a.label;
+    b.onclick = e => a.onClick(b, e);
+    row.appendChild(b);
+  });
+  return card;
+}
+
+/* Card for a track already on the device (library or heard) */
+function localCard(rec, tag){
+  const cached = isCached(rec.key);
+  const mb = rec.size ? " · " + (rec.size/1048576).toFixed(1) + " MB" : "";
+  return baseCard({
+    title: rec.title,
+    sub: rec.creator + " · " + genreName(rec.genre) + mb,
+    badge: tag + (cached ? " · playable offline" : " · needs connection"),
+    badgeClass: cached ? "off" : "cloud",
+    actions: [{
+      label: "▶ Play", primary:true,
+      onClick: async () => {
+        const list = S.tracks.slice().sort((a,b) => a.title.localeCompare(b.title));
+        const idx = Math.max(0, list.findIndex(r => r.key === rec.key));
+        setQueue(list, idx);
+        await playIndex(idx);
+      }
+    }]
+  });
+}
+
+/* Card for a downloadable album/collection from the Archive */
+function archiveCard(doc){
+  const id = doc.identifier;
+  const title = first(doc.title) || id;
+  const creator = first(doc.creator) || "Unknown";
+  const year = first(doc.year) ? " · " + first(doc.year) : "";
+  const genre = S.genre || inferGenre(title + " " + creator + " " + first(doc.subject));
+  return baseCard({
+    title,
+    sub: creator + year + " · " + genreName(genre),
+    badge: "online · free to stream & save",
+    badgeClass: "cloud",
+    actions: [
+      {
+        label: "▶ Play", primary:true,
+        onClick: async (b) => {
+          b.disabled = true; b.textContent = "Loading…";
+          try{ const t = await resolveItem(id, genre); setQueue(t, 0); await playIndex(0); }
+          catch(e){ say("⚠ " + e.message); }
+          b.disabled = false; b.textContent = "▶ Play";
         }
-        return res;
-      }).catch(() => caches.match("./index.html"));
-      return hit || net;
-    })
-  );
+      },
+      {
+        label: "⤓ Save",
+        onClick: async (b) => {
+          b.disabled = true; b.textContent = "…";
+          try{
+            const t = await resolveItem(id, genre);
+            let n = 0;
+            for(const tr of t){ b.textContent = "Saving " + (++n) + "/" + t.length; await saveTrack(tr); }
+            say("Saved “" + title + "” under " + genreName(genre) + " (" + t.length + " tracks).");
+          }catch(e){ say("⚠ " + e.message); }
+          b.disabled = false; b.textContent = "⤓ Save";
+        }
+      }
+    ]
+  });
+}
+
+/* ============ RENDER ============ */
+function render(){
+  const list = $one("#list");
+  list.innerHTML = "";
+  const settings = $one("#settings");
+  settings.hidden = S.view !== "library";
+
+  if(S.view === "browse"){
+    const { lib, hist } = S.local;
+    if(lib.length || hist.length){
+      list.appendChild(el('<div class="sec">On this device — plays offline</div>'));
+      lib.forEach(r  => list.appendChild(localCard(r, "Saved")));
+      hist.forEach(r => list.appendChild(localCard(r, "Heard")));
+    }
+    if(S.results.length){
+      list.appendChild(el('<div class="sec">' +
+        (S.genre ? esc(genreName(S.genre)) + " · online" : "Online · free to stream") + '</div>'));
+      S.results.forEach(d => list.appendChild(archiveCard(d)));
+    }
+    if(!list.children.length){
+      list.innerHTML = '<div class="empty">' + (navigator.onLine
+        ? "Type a search above, or open <b>Genres</b> to browse by type of music."
+        : "You're offline — showing only what's saved here. Reconnect to search the full catalog.") + '</div>';
+    }
+  }
+
+  else if(S.view === "genres"){
+    list.appendChild(el('<div class="sec">Playlists by type of music</div>'));
+    GENRES.concat([UNFILED]).forEach(g => {
+      const mine = S.tracks.filter(r => (r.genre || "unfiled") === g.id);
+      const card = el(
+        '<div class="card">' +
+          '<div class="gicon">' + g.icon + '</div>' +
+          '<div class="t">' + esc(g.name) + '</div>' +
+          '<div class="c">' + (mine.length ? mine.length + " track" + (mine.length>1?"s":"") + " on this device" : "nothing saved yet") + '</div>' +
+          '<div class="row"></div>' +
+        '</div>'
+      );
+      const row = card.querySelector(".row");
+      if(mine.length){
+        const pb = document.createElement("button");
+        pb.className = "act play"; pb.textContent = "▶ My playlist";
+        pb.onclick = async () => {
+          setQueue(mine.map(r => ({...r})), 0);
+          await playIndex(0);
+          say("Playing your " + g.name + " playlist (" + mine.length + " tracks, offline).");
+        };
+        row.appendChild(pb);
+      }
+      if(g.id !== "unfiled"){
+        const bb = document.createElement("button");
+        bb.className = "act"; bb.textContent = "🌐 Browse";
+        bb.onclick = async () => {
+          S.view = "browse"; S.genre = g.id;
+          document.querySelectorAll(".tab").forEach(x => x.classList.toggle("on", x.dataset.view === "browse"));
+          say("Loading " + g.name + " from the free catalog…");
+          render();
+          await runOnlineSearch("");
+        };
+        row.appendChild(bb);
+      }
+      list.appendChild(card);
+    });
+  }
+
+  else if(S.view === "library"){
+    if(!S.tracks.length){
+      list.innerHTML = '<div class="empty">Nothing saved yet.<br>In Browse, hit <b>⤓ Save</b> — or turn on <b>Keep heard tracks offline</b> above and anything you play lands here, ready for airplane mode.</div>';
+      return;
+    }
+    // Group by genre — this is the "arranged by type of music" library
+    const order = GENRES.map(g => g.id).concat(["unfiled"]);
+    const groups = {};
+    S.tracks.forEach(r => (groups[r.genre || "unfiled"] ||= []).push(r));
+    order.forEach(gid => {
+      const rows = groups[gid];
+      if(!rows || !rows.length) return;
+      list.appendChild(el('<div class="sec">' + (genreById(gid) ? genreById(gid).icon : "📁") + ' ' + esc(genreName(gid)) + ' · ' + rows.length + '</div>'));
+      rows.sort((a,b) => a.title.localeCompare(b.title)).forEach(rec => {
+        const card = baseCard({
+          title: rec.title,
+          sub: rec.creator + (rec.size ? " · " + (rec.size/1048576).toFixed(1) + " MB" : "") + (rec.auto ? " · auto-kept" : ""),
+          actions: [
+            {
+              label: "▶ Play", primary:true,
+              onClick: async () => {
+                const list2 = S.tracks.slice().sort((a,b) => a.title.localeCompare(b.title));
+                const idx = Math.max(0, list2.findIndex(r => r.key === rec.key));
+                setQueue(list2, idx);
+                await playIndex(idx);
+              }
+            },
+            {
+              label: "🗑",
+              onClick: async () => {
+                await trackDel(rec.key);
+                const h = await histGet(rec.key);
+                if(h){ h.cached = false; await histPut(h); }
+                await refreshLocal();
+                say("Removed the download — “" + rec.title + "” is still in Heard and playable online.");
+                render();
+              }
+            }
+          ]
+        });
+        // genre re-assignment dropdown
+        const sel = document.createElement("select");
+        sel.className = "gsel";
+        GENRES.concat([UNFILED]).forEach(g => {
+          const o = document.createElement("option");
+          o.value = g.id; o.textContent = g.icon + "  " + g.name;
+          o.selected = g.id === (rec.genre || "unfiled");
+          sel.appendChild(o);
+        });
+        sel.onchange = async () => {
+          rec.genre = sel.value;
+          await trackPut(rec);
+          const h = await histGet(rec.key);
+          if(h){ h.genre = sel.value; await histPut(h); }
+          await refreshLocal();
+          render();
+          say("Moved to " + genreName(sel.value) + ".");
+        };
+        card.insertBefore(sel, card.querySelector(".row"));
+        list.appendChild(card);
+      });
+    });
+    showStorage();
+  }
+
+  else if(S.view === "history"){
+    if(!S.history.length){
+      list.innerHTML = '<div class="empty">Nothing heard yet. Anything you play shows up here — and if offline-keeping is on, it stays playable with no connection.</div>';
+      return;
+    }
+    list.appendChild(el('<div class="sec">Recently heard (' + S.history.length + ')</div>'));
+    S.history.slice().sort((a,b) => b.playedAt - a.playedAt).forEach(rec => {
+      const when = new Date(rec.playedAt).toLocaleDateString();
+      list.appendChild(baseCard({
+        title: rec.title,
+        sub: rec.creator + " · " + genreName(rec.genre) + " · played " + rec.plays + "× · " + when,
+        badge: isCached(rec.key) ? "playable offline" : "online only",
+        badgeClass: isCached(rec.key) ? "off" : "cloud",
+        actions: [
+          {
+            label: "▶ Play", primary:true,
+            onClick: async () => {
+              const list2 = S.history.slice().sort((a,b) => b.playedAt - a.playedAt);
+              const idx = Math.max(0, list2.findIndex(r => r.key === rec.key));
+              setQueue(list2, idx);
+              await playIndex(idx);
+            }
+          },
+          {
+            label: "🗑",
+            onClick: async () => { await histDel(rec.key); await trackDel(rec.key); await refreshLocal(); render(); }
+          }
+        ]
+      }));
+    });
+  }
+}
+
+/* ============ refresh local data ============ */
+async function refreshLocal(){
+  S.tracks = await trackAll();
+  trackKeys.clear();
+  S.tracks.forEach(t => trackKeys.add(t.key));
+  S.history = (await histAll()).sort((a,b) => b.playedAt - a.playedAt);
+}
+async function showStorage(){
+  if(!navigator.storage || !navigator.storage.estimate) return;
+  try{
+    const e = await navigator.storage.estimate();
+    $one("#stor").textContent = S.tracks.length + " tracks on device · " +
+      (e.usage/1048576).toFixed(1) + " MB used of ~" + (e.quota/1048576/1024).toFixed(1) + " GB available";
+  }catch(_){}
+}
+
+/* ============ downloads ============ */
+async function fetchWithProgress(url, onPct){
+  const r = await fetch(url);
+  if(!r.ok) throw new Error("Download failed (" + r.status + ")");
+  const total = Number(r.headers.get("content-length") || 0);
+  if(!r.body || !total || !r.body.getReader) return await r.blob();
+  const reader = r.body.getReader();
+  const chunks = []; let got = 0;
+  for(;;){
+    const { done, value } = await reader.read();
+    if(done) break;
+    chunks.push(value); got += value.length;
+    if(onPct) onPct(got / total);
+  }
+  return new Blob(chunks, { type: r.headers.get("content-type") || "audio/mpeg" });
+}
+
+async function saveTrack(track){
+  const blob = await fetchWithProgress(track.url, null);
+  await trackPut({ key:track.key, title:track.title, creator:track.creator, genre:track.genre || "unfiled",
+                   size:blob.size, blob, auto:false, saved:Date.now() });
+  const h = await histGet(track.key);
+  if(h){ h.cached = true; await histPut(h); }
+  await refreshLocal();
+  return blob;
+}
+
+/* Quietly keep already-heard tracks so they can be replayed offline */
+async function cacheHeard(track){
+  if(!S.autoCache || !navigator.onLine) return;
+  if(trackKeys.has(track.key)) return;
+  try{
+    const blob = await fetchWithProgress(track.url, null);
+    if(blob.size > MAX_TRACK_BYTES) return;
+    await trackPut({ key:track.key, title:track.title, creator:track.creator, genre:track.genre || "unfiled",
+                     size:blob.size, blob, auto:true, saved:Date.now() });
+    const h = await histGet(track.key);
+    if(h){ h.cached = true; await histPut(h); }
+    await refreshLocal();
+    await enforceCap();
+    if(S.view === "library" || S.view === "browse") render();
+  }catch(_){ /* offline or blocked — fine, it's just a cache */ }
+}
+
+async function enforceCap(){
+  const auto = S.tracks.filter(t => t.auto).sort((a,b) => a.saved - b.saved);
+  let total = auto.reduce((n,t) => n + (t.size||0), 0);
+  for(const t of auto){
+    if(total <= S.capBytes) break;
+    await trackDel(t.key);
+    total -= (t.size || 0);
+  }
+  if(auto.some(t => !trackKeys.has(t.key))) await refreshLocal();
+}
+
+/* ============ history ============ */
+async function recordHistory(track){
+  const prev = await histGet(track.key);
+  const rec = {
+    key: track.key, title: track.title, creator: track.creator,
+    genre: track.genre || S.genre || inferGenre(track.title + " " + track.creator),
+    url: track.url,
+    plays: (prev ? prev.plays : 0) + 1,
+    playedAt: Date.now(),
+    cached: prev ? prev.cached : trackKeys.has(track.key)
+  };
+  await histPut(rec);
+  S.history = (await histAll());
+  // prune
+  if(S.history.length > MAX_HISTORY){
+    S.history.sort((a,b) => a.playedAt - b.playedAt)
+      .slice(0, S.history.length - MAX_HISTORY)
+      .forEach(r => histDel(r.key));
+    S.history = await histAll();
+  }
+  S.history.sort((a,b) => b.playedAt - a.playedAt);
+}
+
+/* ============ playback ============ */
+function setQueue(tracks, i){ S.queue = tracks; S.i = i; }
+
+async function playIndex(i){
+  if(!S.queue.length) return;
+  S.i = (i + S.queue.length) % S.queue.length;
+  let t = { ...S.queue[S.i] };
+  t.genre = t.genre || S.genre || inferGenre(t.title + " " + t.creator);
+
+  let blob = t.blob;
+  if(!blob){
+    try{ const rec = await trackGet(t.key); if(rec) blob = rec.blob; }catch(_){}
+  }
+  if(objectUrl){ URL.revokeObjectURL(objectUrl); objectUrl = null; }
+  if(blob){ objectUrl = URL.createObjectURL(blob); audio.src = objectUrl; }
+  else audio.src = t.url;
+
+  $one("#nowTitle").textContent = t.title || "Unknown title";
+  $one("#nowArtist").textContent = (t.creator || "Unknown") + " · " + genreName(t.genre);
+
+  try{ await audio.play(); }
+  catch(e){ say("Tap ▶ to start — the browser blocked autoplay."); }
+
+  // remember it, and keep it offline if that setting is on
+  recordHistory(t).catch(()=>{});
+  if(!blob) cacheHeard(t);
+}
+
+audio.addEventListener("error", () => { if(audio.src) say("⚠ Playback failed — file unavailable, or offline with no local copy."); });
+audio.addEventListener("play",  () => $one("#pp").textContent = "⏸");
+audio.addEventListener("pause", () => $one("#pp").textContent = "▶");
+audio.addEventListener("ended", () => {
+  if(S.repeat) return playIndex(S.i);
+  if(S.i < S.queue.length - 1) return playIndex(S.i + 1);
+  $one("#pp").textContent = "▶";
 });
+audio.addEventListener("loadedmetadata", () => { $one("#dur").textContent = fmt(audio.duration); });
+audio.addEventListener("timeupdate", () => {
+  $one("#cur").textContent = fmt(audio.currentTime);
+  if(audio.duration) $one("#seek").value = (audio.currentTime / audio.duration) * 1000;
+});
+
+$one("#pp").onclick   = () => audio.paused ? audio.play().catch(()=>{}) : audio.pause();
+$one("#next").onclick = () => nextTrack();
+$one("#prev").onclick = () => { if(audio.currentTime > 4){ audio.currentTime = 0; return; } playIndex(S.i - 1); };
+$one("#seek").oninput = () => { if(audio.duration) audio.currentTime = ($one("#seek").value/1000) * audio.duration; };
+$one("#vol").oninput  = () => { audio.volume = Number($one("#vol").value); };
+$one("#shuf").onclick = e => { S.shuffle = !S.shuffle; e.currentTarget.classList.toggle("on", S.shuffle); };
+$one("#rep").onclick  = e => { S.repeat  = !S.repeat;  e.currentTarget.classList.toggle("on", S.repeat);  };
+function nextTrack(){
+  if(!S.queue.length) return;
+  if(S.shuffle && S.queue.length > 1){
+    let n; do { n = Math.floor(Math.random() * S.queue.length); } while(n === S.i);
+    return playIndex(n);
+  }
+  playIndex(S.i + 1);
+}
+audio.volume = Number($one("#vol").value);
+
+document.addEventListener("keydown", e => {
+  if(e.target.tagName === "INPUT" || e.target.tagName === "SELECT") return;
+  if(e.code === "Space"){ e.preventDefault(); $one("#pp").click(); }
+  if(e.code === "ArrowRight") audio.currentTime += 5;
+  if(e.code === "ArrowLeft")  audio.currentTime -= 5;
+  if(e.key === "m") audio.muted = !audio.muted;
+});
+
+/* ============ search (local first, then online) ============ */
+async function runSearch(q){
+  const query = q.trim();
+  S.local = query ? localSearch(query) : { lib:[], hist:[] };
+  if(!query){ S.results = []; render(); return; }
+
+  const nLocal = S.local.lib.length + S.local.hist.length;
+  if(!navigator.onLine){
+    S.results = [];
+    say(nLocal ? "Offline — " + nLocal + " match" + (nLocal>1?"es":"") + " on this device." : "Offline and nothing on the device matches. Reconnect to search the catalog.");
+    render();
+    return;
+  }
+  say("Searching the free catalog…");
+  try{
+    S.results = await searchIA(query);
+    say((nLocal ? nLocal + " on device · " : "") + S.results.length + " online results — ad-free, stream or save.");
+  }catch(err){
+    S.results = []; say("⚠ " + err.message);
+  }
+  render();
+}
+
+async function runOnlineSearch(genreId){
+  S.genre = genreId || S.genre;
+  const g = genreById(S.genre);
+  S.local = { lib:[], hist:[] };
+  S.results = [];
+  render();
+  if(!navigator.onLine){ say("Offline — showing nothing from the catalog. Your saved " + (g?g.name:"") + " playlist still plays."); return; }
+  say("Loading " + (g ? g.name : "music") + " from the free catalog…");
+  try{
+    S.results = await searchIA(g ? g.q : "");
+    say(g ? g.name + ": " + S.results.length + " albums — free to stream and save." : S.results.length + " results.");
+  }catch(e){ say("⚠ " + e.message); }
+  render();
+}
+
+let timer;
+$one("#search").addEventListener("input", e => {
+  clearTimeout(timer);
+  const q = e.target.value;
+  timer = setTimeout(() => {
+    if(!q.trim()) S.genre = null;
+    runSearch(q);
+  }, 400);
+});
+
+/* ============ tabs ============ */
+document.querySelectorAll(".tab").forEach(b => b.onclick = async () => {
+  document.querySelectorAll(".tab").forEach(x => x.classList.remove("on"));
+  b.classList.add("on");
+  S.view = b.dataset.view;
+  await refreshLocal();
+  render();
+  if(S.view === "library"){ showStorage(); }
+});
+
+/* ============ settings ============ */
+const acBox = $one("#ac"), capBox = $one("#cap");
+function loadSettings(){
+  S.autoCache = localStorage.getItem(DB_NAME + "_autocache") !== "0";
+  const c = parseInt(localStorage.getItem(DB_NAME + "_cap"), 10);
+  if(c >= 50) S.capBytes = c * 1048576;
+  acBox.checked = S.autoCache;
+  capBox.value = Math.round(S.capBytes / 1048576);
+}
+acBox.onchange = () => {
+  S.autoCache = acBox.checked;
+  localStorage.setItem(DB_NAME + "_autocache", S.autoCache ? "1" : "0");
+  say(S.autoCache ? "Heard tracks will be kept for offline replay." : "Heard tracks will no longer be kept offline.");
+};
+capBox.onchange = () => {
+  const mb = Math.max(50, Math.min(5000, parseInt(capBox.value, 10) || 300));
+  S.capBytes = mb * 1048576;
+  localStorage.setItem(DB_NAME + "_cap", mb);
+  capBox.value = mb;
+  enforceCap().then(showStorage);
+};
+
+/* ============ network status ============ */
+function netStatus(){
+  const p = $one("#net");
+  const on = navigator.onLine;
+  p.textContent = on ? "online" : "offline";
+  p.className = "pill " + (on ? "up" : "down");
+}
+window.addEventListener("online",  () => { netStatus(); say("Back online — searching is available again."); });
+window.addEventListener("offline", () => { netStatus(); say("Offline — only tracks on this device will play."); });
+
+/* ============ boot ============ */
+(async function init(){
+  loadSettings();
+  netStatus();
+  await refreshLocal();
+  render();
+  if(navigator.storage && navigator.storage.persist){ try{ await navigator.storage.persist(); }catch(_){} }
+
+  if(navigator.onLine){
+    S.genre = "jazz";
+    try{
+      S.results = await searchIA('subject:("jazz")');
+      render();
+      say("Welcome to " + APP_NAME + " — showing Jazz. Use Genres for playlists by type of music, Save to keep an album offline.");
+    }catch(_){ say("Search the free catalog above, or open Genres."); }
+  }else{
+    say("Welcome back — you're offline. Open Library or Heard to play what's on this device.");
+  }
+})();
+</script>
+</body>
+</html>
